@@ -1,11 +1,8 @@
 .Showcase {
   display: flex;
   flex-direction: column;
-  width: 1200px;
-  margin-left: auto;
-  margin-right: auto;
+  width: 100%;
   box-sizing: border-box;
-  padding: 60px 0px;
   align-items: center;
   justify-content: center;
 }
@@ -100,7 +97,7 @@
   display: none;
 }
 
-@media (max-width: 1300px) {
+@media (max-width: 1299px) {
   .Title {
     font-size: 26px;
   }
@@ -108,11 +105,6 @@
   .Label {
     font-size: 13px;
     line-height: 16px;
-  }
-
-  .Showcase {
-    width: 900px;
-    padding: 40px 0px;
   }
 
   .CarouselContainer {
@@ -131,16 +123,9 @@
     font-size: 12px;
     line-height: 15px;
   }
-  .Showcase {
-    width: 100%;
-    padding: 32px 24px;
-  }
 }
 
-@media (max-width: 720px) {
-  .Showcase {
-    padding: 50px 16px;
-  }
+@media (max-width: 767px) {
   .Infos {
     flex-direction: column;
     align-items: flex-start;

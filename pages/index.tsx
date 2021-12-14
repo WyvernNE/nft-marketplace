@@ -4,63 +4,43 @@ import BetaBanner from 'components/base/BetaBanner';
 import MainHeader from 'components/base/MainHeader';
 import Landing from 'components/pages/Landing';
 import TernoaWallet from 'components/base/TernoaWallet';
-import NotAvailableModal from 'components/base/NotAvailable';
-import Cookies from 'js-cookie';
 import arrayShuffle from 'array-shuffle';
 import cookies from 'next-cookies';
 
+import { getCapsValue } from 'actions/caps';
 import { getUser, getUsers } from 'actions/user';
-import { getCategoryNFTs } from 'actions/nft';
+import { getNFTs } from 'actions/nft';
 import { NftType, UserType } from 'interfaces';
 import { NextPageContext } from 'next';
-import { encryptCookie, decryptCookie } from 'utils/cookie';
+import { decryptCookie, setUserFromDApp } from 'utils/cookie';
 
 export interface LandingProps {
   user: UserType;
   users: UserType[];
+  capsValue?: number;
+  heroNFTs: NftType[];
   popularNfts: NftType[];
   bestSellingNfts: NftType[];
   NFTCreators: NftType[];
   totalCountNFT: number;
 }
-
-const LandingPage: React.FC<LandingProps> = ({
+const LandingPage = ({
   user,
   users,
+  capsValue,
+  heroNFTs,
   popularNfts,
   bestSellingNfts,
   NFTCreators,
   totalCountNFT,
-}) => {
+}: LandingProps) => {
   const [modalExpand, setModalExpand] = useState(false);
-  const [notAvailable, setNotAvailable] = useState(false);
-  const [walletUser, setWalletUser] = useState<UserType | null>(user);
+  const [walletUser, setWalletUser] = useState(user);
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (
-      window.isRNApp &&
-      window.walletId &&
-      (!Cookies.get('token') ||
-        decryptCookie(Cookies.get('token') as string) !== window.walletId)
-    ) {
-      if (
-        params.get('walletId') &&
-        params.get('walletId') !== window.walletId
-      ) {
-        resetUser();
-      }
-      Cookies.remove('token');
-      Cookies.set('token', encryptCookie(window.walletId), { expires: 1 });
-    }
-    if (!window.isRNApp && params.get('walletId')) setWalletUser(null);
+    setUserFromDApp(setWalletUser)
   }, []);
-
-  const resetUser = async () => {
-    const user = await getUser(window.walletId);
-    setWalletUser(user);
-  };
-
+  
   return (
     <>
       <Head>
@@ -76,7 +56,6 @@ const LandingPage: React.FC<LandingProps> = ({
         <meta property="og:image" content="ternoa-social-banner.jpg" />
       </Head>
       {modalExpand && <TernoaWallet setModalExpand={setModalExpand} />}
-      {notAvailable && <NotAvailableModal setNotAvailable={setNotAvailable} />}
       <BetaBanner />
       <MainHeader
         user={walletUser as UserType}
@@ -84,9 +63,10 @@ const LandingPage: React.FC<LandingProps> = ({
       />
       <Landing
         setModalExpand={setModalExpand}
-        setNotAvailable={setNotAvailable}
         user={walletUser as UserType}
         users={users}
+        capsValue={capsValue}
+        heroNFTs={heroNFTs}
         popularNfts={popularNfts}
         bestSellingNfts={bestSellingNfts}
         NFTCreators={NFTCreators}
@@ -101,11 +81,12 @@ export async function getServerSideProps(ctx: NextPageContext) {
     (cookies(ctx).token && decryptCookie(cookies(ctx).token as string));
   let users: UserType[] = [],
     user: UserType | null = null,
-    regularNfts: NftType[] = [];
+    regularNfts: NftType[] = [],
+    capsValue: number | undefined = undefined;
   const promises = [];
   promises.push(
     new Promise<void>((success) => {
-      getUsers()
+      getUsers(undefined,true)
         .then((result) => {
           users = result.data;
           success();
@@ -116,7 +97,7 @@ export async function getServerSideProps(ctx: NextPageContext) {
   if (token) {
     promises.push(
       new Promise<void>((success) => {
-        getUser(token)
+        getUser(token, undefined, true)
           .then((_user) => {
             user = _user;
             success();
@@ -127,7 +108,7 @@ export async function getServerSideProps(ctx: NextPageContext) {
   }
   promises.push(
     new Promise<void>((success) => {
-      getCategoryNFTs(undefined, '1', '19', true)
+      getNFTs(undefined, '1', '19', true, true)
         .then((result) => {
           regularNfts = result.data;
           success();
@@ -135,9 +116,16 @@ export async function getServerSideProps(ctx: NextPageContext) {
         .catch(success);
     })
   );
+  promises.push(new Promise<void>((success) => {
+    getCapsValue().then(_value => {
+      capsValue = _value
+      success();
+    }).catch(success);
+  }));
   await Promise.all(promises);
   users = arrayShuffle(users);
   let popularNfts = arrayShuffle((regularNfts || []).slice(0, 8));
+  let heroNFTs = popularNfts.length > 3 ? arrayShuffle(popularNfts).slice(0, 3) : popularNfts; // TODO: Fetch dedicated data
   let bestSellingNfts = arrayShuffle((regularNfts || []).slice(8, 16));
   let NFTCreators = arrayShuffle((regularNfts || []).slice(16, 19));
   let totalCountNFT = (regularNfts || []).length;
@@ -145,6 +133,8 @@ export async function getServerSideProps(ctx: NextPageContext) {
     props: {
       user,
       users,
+      capsValue,
+      heroNFTs,
       popularNfts,
       bestSellingNfts,
       NFTCreators,
