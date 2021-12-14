@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
+import styled from 'styled-components'
 import style from './NFT.module.scss';
 import Footer from 'components/base/Footer';
 import FloatingHeader from 'components/base/FloatingHeader';
@@ -8,15 +9,19 @@ import Scale from 'components/assets/scale';
 import Share from 'components/assets/share';
 import Like from 'components/assets/heart';
 import Eye from 'components/assets/eye';
-import { computeCaps, computeTiime } from 'utils/strings';
-import { UserType, NftType } from 'interfaces';
+import { computeCaps, computeTiime, middleEllipsis } from 'utils/strings';
+import { UserType, NftType, INFTLike } from 'interfaces';
 import { likeNFT, unlikeNFT } from 'actions/user';
 import ModalShare from 'components/base/ModalShare';
 import NoNFTImage from '../../assets/NoNFTImage';
-// import gradient from 'random-gradient';
 import Details from './Details';
 import Creator from 'components/base/Creator';
 import { MARKETPLACE_ID } from 'utils/constant';
+import { Title } from 'components/layout'
+import Chip from 'components/ui/Chip';
+import Showcase from 'components/base/Showcase';
+import { getByTheSameArtistNFTs, getOwnedNFTS } from 'actions/nft';
+import { getRandomNFTFromArray } from 'utils/functions';
 
 export interface NFTPageProps {
   NFT: NftType;
@@ -25,26 +30,28 @@ export interface NFTPageProps {
   setUser: (u: UserType) => void;
   type: string | null;
   setExp: (n: number) => void;
-  setNotAvailable: (b: boolean) => void;
   setModalExpand: (b: boolean) => void;
   capsValue: number;
+  isUserFromDappQR: boolean;
 }
 
-const NFTPage: React.FC<NFTPageProps> = ({
+const NFTPage = ({
   setExp,
   NFT,
   setNftToBuy,
   setModalExpand,
-  setNotAvailable,
   user,
   setUser,
   type,
-}) => {
+  isUserFromDappQR,
+}: NFTPageProps) => {
   const [likeLoading, setLikeLoading] = useState(false);
   const [modalShareOpen, setModalShareOpen] = useState(false);
-  // const bgGradient = { background: gradient(NFT.ownerData.name) };
+  const [byTheSameArtistNFTs, setByTheSameArtistNFTs] = useState<NftType[]>([])
+  const [canUserBuyAgain, setCanUserBuyAgain] = useState(true)
+  const isVR = (NFT.categories.findIndex(x => x.code === "vr") !== -1) && NFT.creator === NFT.owner
   const shareSubject = 'Check out this Secret NFT';
-  const shareText = `Check out ${NFT.name ? NFT.name : 'this nft'} on ${
+  const shareText = `Check out ${NFT.title ? NFT.title : 'this nft'} on ${
     process.env.NEXT_PUBLIC_APP_LINK
       ? process.env.NEXT_PUBLIC_APP_LINK
       : 'secret-nft.com'
@@ -61,7 +68,9 @@ const NFTPage: React.FC<NFTPageProps> = ({
     : NFT.serieId === '0'
     ? user.likedNFTs?.map((x) => x.nftId).includes(NFT.id)
     : user.likedNFTs?.map((x) => x.serieId).includes(NFT.serieId);
-  const numberListedOnThisMarketplace = !NFT.serieData
+  const numberListedOnThisMarketplace = NFT.totalListedInMarketplace 
+    ? NFT.totalListedInMarketplace 
+    : !NFT.serieData
     ? 0
     : NFT.serieData.reduce(
         (prev, current) =>
@@ -72,7 +81,7 @@ const NFTPage: React.FC<NFTPageProps> = ({
         0
       );
   const smallestPriceRow =
-    !NFT.serieData || NFT.serieData.length <= 1
+    (!NFT.serieData || NFT.serieData.length <= 1)
       ? NFT
       : NFT.serieData
           .filter((x) => x.marketplaceId === MARKETPLACE_ID)
@@ -91,7 +100,7 @@ const NFTPage: React.FC<NFTPageProps> = ({
               Number(a.price) - Number(b.price) || //lowest price first
               Number(a.priceTiime) - Number(b.priceTiime) // lower pricetiime first
           )[0];
-  const userCanBuy = user
+  const userCanBuy = (!isVR || (isVR && isUserFromDappQR && canUserBuyAgain)) && (user
     ? user.capsAmount &&
       smallestPriceRow &&
       smallestPriceRow.listed &&
@@ -103,15 +112,44 @@ const NFTPage: React.FC<NFTPageProps> = ({
     : smallestPriceRow
     ? smallestPriceRow.listed === 1 &&
       smallestPriceRow.marketplaceId === MARKETPLACE_ID
-    : false;
+    : false);
 
   useEffect(() => {
     setNftToBuy(smallestPriceRow);
   }, [smallestPriceRow]);
 
+  useEffect(() => {
+    loadByTheSameArtistNFTs()
+  }, [NFT])
+
+  useEffect(() => {
+    if (isVR && user){
+      loadCanUserBuyAgain()
+    }else{
+      setCanUserBuyAgain(true)
+    }
+  }, [isVR])
+
+  const loadCanUserBuyAgain = async () => {
+    try{
+      const res = await getOwnedNFTS(user.walletId,false, undefined, undefined, undefined, true, NFT.serieData?.map(x => x.id))
+      const canUserBuyAgainValue = res.totalCount === 0
+      setCanUserBuyAgain(canUserBuyAgainValue)
+      return canUserBuyAgainValue
+    }catch(err){
+      setCanUserBuyAgain(false)
+      return false
+    }
+  }
+
+  const loadByTheSameArtistNFTs = async () => {
+    const NFTs = await getByTheSameArtistNFTs(NFT.creator, "1", "7", true)
+    setByTheSameArtistNFTs(NFTs.data.filter(x => x.serieId !== NFT.serieId))
+  }
+
   const handleLikeDislike = async () => {
     try {
-      let res = null;
+      let res: INFTLike | null = null;
       if (!likeLoading && user) {
         setLikeLoading(true);
         if (!isLiked) {
@@ -120,7 +158,17 @@ const NFTPage: React.FC<NFTPageProps> = ({
           res = await unlikeNFT(user.walletId, NFT.id, NFT.serieId);
         }
       }
-      if (res !== null) setUser({ ...user, ...res });
+      if (res !== null){
+        let newUser = user
+        if (newUser.likedNFTs){
+          if (!isLiked){
+            newUser.likedNFTs.push(res)
+          }else{
+            newUser.likedNFTs = newUser?.likedNFTs.filter(x => x.nftId !== res?.nftId && x.serieId !== res?.serieId)
+          }
+          setUser(newUser)
+        }
+      }
       setLikeLoading(false);
     } catch (err) {
       console.error(err);
@@ -129,34 +177,52 @@ const NFTPage: React.FC<NFTPageProps> = ({
 
   const handleShare = async () => {
     try {
-      // TODO : Make share with native
-      // if (window && window.isRNApp && navigator){
-      //   await navigator.share({
-      //     title: shareSubject,
-      //     text: shareText,
-      //     url: shareUrl
-      //   })
-      // }else{
-      //   setModalShareOpen(true)
-      // }
-      setModalShareOpen(true);
+      if (window && window.isRNApp &&  window.navigator && window.navigator.share){
+        await window.navigator.share({
+          title: shareSubject,
+          text: shareText,
+          url: shareUrl
+        })
+      }else{
+        setModalShareOpen(true)
+      }
     } catch (err) {
       console.error(err);
     }
   };
 
-  const handleBuy = () => {
-    setNftToBuy(smallestPriceRow);
-    setExp(2);
+  const handleBuy = async () => {
+    //get a random row to buy if same price
+    const smallestPriceRows = (!NFT.serieData || NFT.serieData.length <= 1) ? 
+      [NFT]
+    : 
+      NFT.serieData
+        .filter((x) => x.marketplaceId === MARKETPLACE_ID && x.listed===1 && (!user || (x.owner !== user.walletId)))
+        .sort(
+          (a, b) =>
+            Number(a.price) - Number(b.price) || //lowest price first
+            Number(a.priceTiime) - Number(b.priceTiime) // lower pricetiime first
+        ).filter((x, _i, arr) => 
+          x.price === arr[0].price &&
+          x.priceTiime === arr[0].priceTiime
+        )
+    let canBuyAgain = true
+    if (isVR){
+      canBuyAgain = await loadCanUserBuyAgain()
+    }
+    if (canBuyAgain){
+      setNftToBuy(getRandomNFTFromArray(smallestPriceRows));
+      setExp(2);
+    }
   };
 
   return (
     <div className={style.Container}>
       <div className={style.MainWrapper}>
         <div className={style.Wrapper}>
-          <div className={style.NFT}>
+          <SMediaWrapper className={style.NFT}>
             <Media
-              src={NFT.media.url}
+              src={NFT.properties?.preview.ipfs!}
               type={type}
               alt="imgnft"
               draggable="false"
@@ -165,7 +231,7 @@ const NFTPage: React.FC<NFTPageProps> = ({
             <div onClick={() => setExp(1)} className={style.Scale}>
               <Scale className={style.ScaleSVG} />
             </div>
-          </div>
+          </SMediaWrapper>
           <div className={style.Text}>
             <div className={style.Top}>
               <div className={style.TopInfosCreator}>
@@ -174,16 +240,15 @@ const NFTPage: React.FC<NFTPageProps> = ({
                     className={style.TopInfosCreatorPictureIMG}
                     size={'fullwidth'}
                     user={NFT.creatorData}
+                    walletId={NFT.creator}
                   />
                 </div>
                 <div className={style.TopInfosCreatorName}>
-                  <Link href={`/${NFT.creatorData.walletId}`}>
-                    <a>{NFT.creatorData.name}</a>
+                  <Link href={`/${NFT.creator}`}>
+                    <a>{NFT.creatorData?.name || middleEllipsis(NFT.creator, 20)}</a>
                   </Link>
                   <span className={style.creatorTwitterUsername}>
-                    {NFT.creatorData?.twitterName
-                      ? NFT.creatorData.twitterName
-                      : null}
+                    {NFT.creatorData?.twitterName || null}
                   </span>
                 </div>
               </div>
@@ -216,7 +281,30 @@ const NFTPage: React.FC<NFTPageProps> = ({
                 </div>
               </div>
             </div>
-            <h1 className={style.Title}>{NFT.name}</h1>
+            <Title>
+              {NFT.title}
+              {NFT.isCapsule && <SChip
+                color="primaryLight"
+                text={
+                  <>
+                    <SDot />
+                    Capsule
+                  </>
+                }
+                variant="rectangle"
+              />}
+            </Title>
+            <SCategoriesWrapper>
+              {NFT.categories.map(({ name, code }) => (
+                <Chip
+                  key={code}
+                  color="invertedContrast"
+                  text={name}
+                  size="medium"
+                  variant="rectangle"
+                />
+              ))}
+            </SCategoriesWrapper>
             <p className={style.Description}>{NFT.description}</p>
             <div className={style.Buy}>
               <div
@@ -227,39 +315,51 @@ const NFTPage: React.FC<NFTPageProps> = ({
                     : `${style.Button} ${style.Disabled}`
                 }
               >
-                Buy{' '}
-                {`${
-                  smallestPriceRow &&
-                  (smallestPriceRow.price || smallestPriceRow.priceTiime)
-                    ? 'for '
-                    : ''
-                }`}
-                {smallestPriceRow && (
-                  <>
-                    {smallestPriceRow.price &&
-                      Number(smallestPriceRow.price) > 0 &&
-                      `${computeCaps(Number(smallestPriceRow.price))} CAPS`}
-                    {smallestPriceRow.price &&
-                      Number(smallestPriceRow.price) > 0 &&
-                      smallestPriceRow.priceTiime &&
-                      Number(smallestPriceRow.priceTiime) &&
-                      ` / `}
-                    {smallestPriceRow.priceTiime &&
-                      Number(smallestPriceRow.priceTiime) > 0 &&
-                      `${computeTiime(
-                        Number(smallestPriceRow.priceTiime)
-                      )} TIIME`}
-                  </>
-                )}
+                {(isVR && !isUserFromDappQR) ? 
+                  "Reserved for VR gallery"
+                :
+                  (!canUserBuyAgain ? 
+                    "1 VR NFT per account"
+                  :
+                    <>
+                      Buy{' '}
+                      {`${
+                        smallestPriceRow &&
+                        (smallestPriceRow.price || smallestPriceRow.priceTiime)
+                          ? 'for '
+                          : ''
+                      }`}
+                      {smallestPriceRow && (
+                        <>
+                          {smallestPriceRow.price &&
+                            Number(smallestPriceRow.price) > 0 &&
+                            `${computeCaps(Number(smallestPriceRow.price))} CAPS`}
+                          {smallestPriceRow.price &&
+                            Number(smallestPriceRow.price) > 0 &&
+                            smallestPriceRow.priceTiime &&
+                            Number(smallestPriceRow.priceTiime) &&
+                            ` / `}
+                          {smallestPriceRow.priceTiime &&
+                            Number(smallestPriceRow.priceTiime) > 0 &&
+                            `${computeTiime(
+                              Number(smallestPriceRow.priceTiime)
+                            )} TIIME`}
+                        </>
+                      )}
+                    </>
+                  )
+                }
               </div>
             </div>
             <div className={style.Available}>
               <div className={style.AvailbleText}>
                 <NoNFTImage className={style.AvailbleCards} />
-                {`${numberListedOnThisMarketplace} of ${
-                  NFT.serieData ? NFT.serieData.length : 0
-                }`}{' '}
-                Available
+                <div className={style.AvailableTextContent}>
+                  {`${numberListedOnThisMarketplace} of ${
+                    NFT.serieData ? NFT.serieData.length : 1
+                  }`}{' '}
+                  Available
+                </div>
               </div>
               <div className={style.AvailableBackLine} />
             </div>
@@ -271,10 +371,23 @@ const NFTPage: React.FC<NFTPageProps> = ({
             user={user}
             setNftToBuy={setNftToBuy}
             setExp={setExp}
+            isUserFromDappQR={isUserFromDappQR}
+            isVR={isVR}
+            canUserBuyAgain={canUserBuyAgain}
           />
         </div>
       </div>
-      <Footer setNotAvailable={setNotAvailable} />
+      {byTheSameArtistNFTs.length > 0 && (
+        <SShowcaseWrapper>
+          <Showcase
+            category="By the same artist"
+            NFTs={byTheSameArtistNFTs}
+            user={user}
+            setUser={setUser}
+          />
+        </SShowcaseWrapper>
+      )}
+      <Footer />
       <FloatingHeader user={user} setModalExpand={setModalExpand} />
       {modalShareOpen && (
         <ModalShare
@@ -288,5 +401,61 @@ const NFTPage: React.FC<NFTPageProps> = ({
     </div>
   );
 };
+
+const SMediaWrapper = styled.div`
+  height: ${({theme}) => theme.sizes.cardHeight.md};
+  width: ${({theme}) => theme.sizes.cardWidth.md};
+
+  ${({ theme }) => theme.mediaQueries.xxl} {
+    height: ${({theme}) => theme.sizes.cardHeight.lg};
+    width: ${({theme}) => theme.sizes.cardWidth.lg};
+  }
+`
+
+const SChip = styled(Chip)`
+  margin: 1.6rem auto 0;
+
+  ${({ theme }) => theme.mediaQueries.md} {
+    margin: 0;
+    transform: translateY(85%);
+  }
+`
+
+const SDot = styled.div`
+  width: 0.8rem;
+  height: 0.8rem;
+  background: ${({theme}) => theme.colors.primary};
+  border-radius: 50%;
+`
+
+const SCategoriesWrapper = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 1.6rem;
+  margin-top: 1.6rem;
+
+
+  ${({ theme }) => theme.mediaQueries.md} {
+    justify-content: start;
+    margin: 0;
+  }
+`
+
+const SShowcaseWrapper = styled.div`
+  width: 100%;
+  margin: 0 auto;
+  max-width: 1200px;
+  padding: 3.2rem 4rem 6.4rem;
+
+  ${({ theme }) => theme.mediaQueries.xl} {
+    padding: 3.2rem 9.6rem 6.4rem;
+  }
+
+  ${({ theme }) => theme.mediaQueries.xxl} {
+    padding: 3.2rem 2.4rem 6.4rem;
+  }
+`
 
 export default NFTPage;
