@@ -1,83 +1,86 @@
-import React, { useState, useEffect } from 'react';
-import Head from 'next/head';
-import AlphaBanner from 'components/base/AlphaBanner';
-import MainHeader from 'components/base/MainHeader';
-import Explore from 'components/pages/Explore';
-import TernoaWallet from 'components/base/TernoaWallet';
-import NotAvailableModal from 'components/base/NotAvailable';
-import Footer from 'components/base/Footer';
-import FloatingHeader from 'components/base/FloatingHeader';
-import cookies from 'next-cookies';
+import React from 'react'
+import Head from 'next/head'
+import { NextPageContext } from 'next'
+import dayjs from 'dayjs'
 
-import { getUser } from 'actions/user';
-import { getCategoryNFTs } from 'actions/nft';
-import { NftType, UserType } from 'interfaces';
-import { NextPageContext } from 'next';
+import BetaBanner from 'components/base/BetaBanner'
+import MainHeader from 'components/base/MainHeader'
+import Explore from 'components/pages/Explore'
+import Footer from 'components/base/Footer'
+import FloatingHeader from 'components/base/FloatingHeader'
+import { getNFTs, getTotalFilteredNFTsOnMarketplace, getTotalOnSaleOnMarketplace } from 'actions/nft'
+import { NftType } from 'interfaces'
+import { useMarketplaceData } from 'redux/hooks'
+import { sortPromiseMapping } from 'utils/functions'
 
 export interface ExplorePage {
-  user: UserType;
-  data: NftType[];
+  data: NftType[]
+  dataHasNextPage: boolean
+  totalCount: number
 }
 
-const ExplorePage: React.FC<ExplorePage> = ({ user, data }) => {
-  const [modalExpand, setModalExpand] = useState(false);
-  const [notAvailable, setNotAvailable] = useState(false);
-  const [walletUser, setWalletUser] = useState(user);
-
-  useEffect(() => {
-    async function callBack() {
-      try {
-        let res = await getUser(window.walletId);
-        setWalletUser(res);
-      } catch (error) {
-        console.error(error);
-      }
-    }
-    if (window.isRNApp && window.walletId) callBack();
-  }, []);
+const ExplorePage = ({ data, dataHasNextPage, totalCount }: ExplorePage) => {
+  const { name } = useMarketplaceData()
 
   return (
     <>
       <Head>
-        <title>SecretNFT - Explore</title>
+        <title>{name} - Explore</title>
         <meta name="viewport" content="initial-scale=1.0, width=device-width" />
         <meta name="description" content="SecretNFT Marketplace, by Ternoa." />
         <meta name="og:image" content="ternoa-social-banner.jpg" />
         <meta property="og:image" content="ternoa-social-banner.jpg" />
       </Head>
-      {modalExpand && <TernoaWallet setModalExpand={setModalExpand} />}
-      {notAvailable && <NotAvailableModal setNotAvailable={setNotAvailable} />}
-      <AlphaBanner />
-      <MainHeader user={walletUser} setModalExpand={setModalExpand} />
-      <Explore NFTS={data} user={walletUser} setUser={setWalletUser} />
-      <Footer setNotAvailable={setNotAvailable} />
-      <FloatingHeader user={walletUser} setModalExpand={setModalExpand} />
+      <BetaBanner />
+      <MainHeader />
+      <Explore NFTs={data} hasNextPage={dataHasNextPage} totalCount={totalCount} />
+      <Footer />
+      <FloatingHeader />
     </>
-  );
-};
-
-export async function getServerSideProps(ctx: NextPageContext) {
-  const token = cookies(ctx).token;
-  let user: UserType | null = null, data : NftType[] = [];
-  const promises = [];
-  if (token) {
-    promises.push(new Promise<void>((success) => {
-      getUser(token).then(_user => {
-        user = _user
-        success();
-      }).catch(success);
-    }));
-  }
-  promises.push(new Promise<void>((success) => {
-    getCategoryNFTs().then(_nfts => {
-      data = _nfts
-      success();
-    }).catch(success);
-  }));
-  await Promise.all(promises);
-  return {
-    props: { user, data },
-  };
+  )
 }
 
-export default ExplorePage;
+export async function getServerSideProps(context: NextPageContext) {
+  const { codes, filter, minPrice, maxPrice, startDate, endDate, sort } = context.query
+
+  const filterOptions = {
+    categories: typeof codes === 'string' && JSON.parse(codes).length > 0 ? JSON.parse(codes) : undefined,
+    listed: true,
+    priceStartRange: Number(minPrice) > 0 ? Number(minPrice) : undefined,
+    priceEndRange: Number(maxPrice) > 0 ? Number(maxPrice) : undefined,
+    timestampCreateStartRange:
+      typeof startDate === 'string' && dayjs(new Date(startDate)).isValid() ? new Date(startDate) : undefined,
+    timestampCreateEndRange:
+      typeof endDate === 'string' && dayjs(new Date(endDate)).isValid() ? new Date(endDate) : undefined,
+  }
+
+  let data: NftType[] = [],
+    dataHasNextPage = false,
+    totalCount = 0
+
+  const NFTsDataPromise =
+    (typeof sort === 'string' && sortPromiseMapping({ [sort]: true }, 0)) ||
+    getNFTs(undefined, undefined, filterOptions, undefined, true)
+
+  try {
+    const res = await NFTsDataPromise
+    data = res.data
+    dataHasNextPage = res.hasNextPage || false
+  } catch (error) {
+    console.log(error)
+  }
+
+  const totalCountPromise =
+    typeof filter === 'string' ? getTotalFilteredNFTsOnMarketplace(filterOptions, true) : getTotalOnSaleOnMarketplace()
+  try {
+    totalCount = await totalCountPromise
+  } catch (error) {
+    console.log(error)
+  }
+
+  return {
+    props: { data, dataHasNextPage, totalCount },
+  }
+}
+
+export default ExplorePage

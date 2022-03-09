@@ -1,148 +1,91 @@
-import React, { useState, useEffect } from 'react';
-import Head from 'next/head';
-import AlphaBanner from 'components/base/AlphaBanner';
-import MainHeader from 'components/base/MainHeader';
-import TernoaWallet from 'components/base/TernoaWallet';
-import Profile from 'components/pages/Profile';
-import NotAvailableModal from 'components/base/NotAvailable';
-import SuccessPopup from 'components/base/SuccessPopup';
-import cookies from 'next-cookies';
+import React from 'react'
+import Head from 'next/head'
+import cookies from 'next-cookies'
 
-import { getUser } from 'actions/user';
-import { getProfileNFTS, getCreatorNFTS } from 'actions/nft';
-import { getFollowers, getFollowed } from 'actions/follower';
-import { getLikedNFTs } from 'actions/user';
-import { NftType, UserType } from 'interfaces';
-import { NextPageContext } from 'next';
+import BetaBanner from 'components/base/BetaBanner'
+import FloatingHeader from 'components/base/FloatingHeader'
+import Footer from 'components/base/Footer'
+import MainHeader from 'components/base/MainHeader'
+import { Profile } from 'components/pages/Profile'
+import { getOwnedNFTS } from 'actions/nft'
+import { getUser } from 'actions/user'
+import { NftType, UserType } from 'interfaces'
+import { appSetUser } from 'redux/app'
+import { useMarketplaceData } from 'redux/hooks'
+import { wrapper } from 'redux/store'
+import { decryptCookie } from 'utils/cookie'
 
 export interface ProfilePageProps {
-  user: UserType;
-  created: NftType[];
-  owned: NftType[];
-  liked: NftType[];
-  followers: UserType[];
-  followed: UserType[];
+  owned: NftType[]
+  ownedHasNextPage: boolean
+  user: UserType
 }
 
-const ProfilePage: React.FC<ProfilePageProps> = ({
-  user,
-  created,
-  owned,
-  liked,
-  followers,
-  followed,
-}) => {
-  const [modalExpand, setModalExpand] = useState(false);
-  const [notAvailable, setNotAvailable] = useState(false);
-  const [successPopup, setSuccessPopup] = useState(false);
-  const [walletUser, setWalletUser] = useState(user);
-  const [createdNfts, setCreatedNfts] = useState(created)
-  const [ownedNfts, setOwnedNfts] = useState(owned)
-  const [likedNfts, setLikedNfts] = useState(liked)
-  const [followersUsers, setFollowersUsers] = useState(followers)
-  const [followedUsers, setFollowedUsers] = useState(followed)
-
-  useEffect(() => {
-    async function callBack() {
-      try {
-        let res = await getUser(window.walletId);
-        setWalletUser(res);
-      } catch (error) {
-        console.error(error);
-      }
-    }
-    if (window.isRNApp && window.walletId) callBack();
-  }, []);
+const ProfilePage = ({ owned, ownedHasNextPage, user }: ProfilePageProps) => {
+  const { name } = useMarketplaceData()
 
   return (
     <>
       <Head>
-        <title>SecretNFT - My account</title>
+        <title>{name} - My account</title>
         <meta name="viewport" content="initial-scale=1.0, width=device-width" />
         <meta name="description" content="Ternoa - Your profile." />
         <meta name="og:image" content="ternoa-social-banner.jpg" />
       </Head>
-      {modalExpand && <TernoaWallet setModalExpand={setModalExpand} />}
-      {notAvailable && <NotAvailableModal setNotAvailable={setNotAvailable} />}
-      {successPopup && <SuccessPopup setSuccessPopup={setSuccessPopup} />}
-
-      <AlphaBanner />
-      <MainHeader user={walletUser} setModalExpand={setModalExpand} />
-      <Profile
-        user={walletUser}
-        setUser={setWalletUser}
-        createdNFTS={createdNfts}
-        setCreatedNFTS={setCreatedNfts}
-        ownedNFTS={ownedNfts}
-        setOwnedNFTS={setOwnedNfts}
-        likedNfts={likedNfts}
-        setLikedNfts={setLikedNfts}
-        followers={followersUsers}
-        setFollowers={setFollowersUsers}
-        followed={followedUsers}
-        setFollowed={setFollowedUsers}
-        setModalExpand={setModalExpand}
-        setNotAvailable={setNotAvailable}
-        setSuccessPopup={setSuccessPopup}
-      />
+      <BetaBanner />
+      <MainHeader />
+      <Profile user={user} userOwnedlNfts={owned} userOwnedNftsHasNextPage={ownedHasNextPage} />
+      <Footer />
+      <FloatingHeader />
     </>
-  );
-};
-
-export async function getServerSideProps(ctx: NextPageContext) {
-  let user = null, created: NftType[] = [], owned: NftType[] = [], liked: NftType[] = [], followers: UserType[] = [], followed: UserType[] = [];
-  const token = cookies(ctx).token;
-  const promises = [];
-  if (token) {
-    promises.push(new Promise<void>((success) => {
-      getUser(token).then(_user => {
-        user = _user
-        success();
-      }).catch(success);
-    }));
-    promises.push(new Promise<void>((success) => {
-      getCreatorNFTS(token).then(_nfts => {
-        created = _nfts
-        success();
-      }).catch(success);
-    }));
-    promises.push(new Promise<void>((success) => {
-      getProfileNFTS(token).then(_nfts => {
-        owned = _nfts
-        success();
-      }).catch(success);
-    }));
-    promises.push(new Promise<void>((success) => {
-      getLikedNFTs(token).then(_nfts => {
-        liked = _nfts
-        success();
-      }).catch(success);
-    }));
-    promises.push(new Promise<void>((success) => {
-      getFollowers(token).then(_users => {
-        followers = _users
-        success();
-      }).catch(success);
-    }));
-    promises.push(new Promise<void>((success) => {
-      getFollowed(token).then(_users => {
-        followed = _users
-        success();
-      }).catch(success);
-    }));
-  }
-  await Promise.all(promises);
-  if (!user) {
-    return {
-      redirect: {
-        permanent: false,
-        destination: '/',
-      },
-    };
-  }
-  return {
-    props: { user, created, owned, liked, followers, followed },
-  };
+  )
 }
 
-export default ProfilePage;
+export const getServerSideProps = wrapper.getServerSideProps((store) => async (ctx) => {
+  const token = cookies(ctx).token && decryptCookie(cookies(ctx).token as string)
+  let user: UserType | null = null,
+    owned: NftType[] = [],
+    ownedHasNextPage = false
+  const promises = []
+  if (token) {
+    promises.push(
+      new Promise<void>((success) => {
+        getUser(token, true)
+          .then((_user) => {
+            user = _user
+            store.dispatch(appSetUser(_user))
+            success()
+          })
+          .catch(success)
+      })
+    )
+    promises.push(
+      new Promise<void>((success) => {
+        getOwnedNFTS(token, false, undefined, undefined, undefined)
+          .then((result) => {
+            owned = result.data
+            ownedHasNextPage = result.hasNextPage || false
+            success()
+          })
+          .catch(success)
+      })
+    )
+  }
+  await Promise.all(promises)
+
+  if (!user) {
+    return {
+      notFound: true,
+    }
+  }
+
+  return {
+    props: {
+      user,
+      owned,
+      ownedHasNextPage,
+    },
+  }
+})
+
+export default ProfilePage

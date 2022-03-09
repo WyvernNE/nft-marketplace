@@ -1,74 +1,65 @@
-import React, { useState, useEffect } from 'react';
-import Head from 'next/head';
-import AlphaBanner from 'components/base/AlphaBanner';
-import MainHeader from 'components/base/MainHeader';
-import TernoaWallet from 'components/base/TernoaWallet';
-import Wallet from 'components/pages/Wallet';
-import NotAvailableModal from 'components/base/NotAvailable';
-import cookies from 'next-cookies';
+import React from 'react'
+import Head from 'next/head'
+import cookies from 'next-cookies'
 
-import { getUser } from 'actions/user';
-import { UserType } from 'interfaces';
-import { NextPageContext } from 'next';
+import { getUser } from 'actions/user'
+import BetaBanner from 'components/base/BetaBanner'
+import FloatingHeader from 'components/base/FloatingHeader'
+import Footer from 'components/base/Footer'
+import MainHeader from 'components/base/MainHeader'
+import Wallet from 'components/pages/Wallet'
+
+import { UserType } from 'interfaces'
+import { appSetUser } from 'redux/app'
+import { useMarketplaceData } from 'redux/hooks'
+import { wrapper } from 'redux/store'
+import { decryptCookie } from 'utils/cookie'
 
 export interface WalletPageProps {
-  user: UserType;
-  token: string;
+  user: UserType
+  token: string
 }
 
-const WalletPage: React.FC<WalletPageProps> = ({ user }) => {
-  const [modalExpand, setModalExpand] = useState(false);
-  const [notAvailable, setNotAvailable] = useState(false);
-  const [walletUser, setWalletUser] = useState(user);
-
-  useEffect(() => {
-    async function callBack() {
-      try {
-        let res = await getUser(window.walletId);
-        setWalletUser(res);
-      } catch (error) {
-        console.error(error);
-      }
-    }
-    if (window.isRNApp && window.walletId) callBack();
-  }, []);
+const WalletPage = ({ user }: WalletPageProps) => {
+  const { name } = useMarketplaceData()
 
   return (
     <>
       <Head>
-        <title>SecretNFT - Wallet</title>
+        <title>{name} - Wallet</title>
         <meta name="viewport" content="initial-scale=1.0, width=device-width" />
         <meta name="description" content="Ternoa Wallet" />
         <meta name="og:image" content="ternoa-social-banner.jpg" />
       </Head>
-      {modalExpand && <TernoaWallet setModalExpand={setModalExpand} />}
-      {notAvailable && <NotAvailableModal setNotAvailable={setNotAvailable} />}
-      <AlphaBanner />
-      <MainHeader user={walletUser} setModalExpand={setModalExpand} />
-      <Wallet
-        user={walletUser}
-        setModalExpand={setModalExpand}
-        setNotAvailable={setNotAvailable}
-      />
+      <BetaBanner />
+      <MainHeader />
+      <Wallet user={user} />
+      <Footer />
+      <FloatingHeader />
     </>
-  );
-};
-
-export async function getServerSideProps(ctx: NextPageContext) {
-  let user = null;
-  const token = cookies(ctx).token;
-  if (token) user = await getUser(token).catch(() => null);
-  if (!user) {
-    return {
-      redirect: {
-        permanent: false,
-        destination: '/',
-      },
-    };
-  }
-  return {
-    props: { user },
-  };
+  )
 }
 
-export default WalletPage;
+export const getServerSideProps = wrapper.getServerSideProps((store) => async (ctx) => {
+  const token = cookies(ctx).token && decryptCookie(cookies(ctx).token as string)
+  let user: UserType | null = null
+
+  if (token) {
+    try {
+      user = await getUser(token, true)
+      store.dispatch(appSetUser(user))
+    } catch (error) {
+      console.log(error)
+    }
+  }
+
+  if (!user) {
+    return {
+      notFound: true,
+    }
+  }
+
+  return { props: { user } }
+})
+
+export default WalletPage

@@ -1,34 +1,26 @@
-import React from 'react';
+import React from 'react'
+import styled from 'styled-components'
 
-import style from './FAQ.module.scss';
-import Footer from 'components/base/Footer';
-import FloatingHeader from 'components/base/FloatingHeader';
-import Section from './Section';
+import { Container, Title, Wrapper } from 'components/layout'
+import { useMarketplaceData } from 'redux/hooks'
 
-import { UserType } from 'interfaces/index';
+import Section from './Section'
 
-export interface FAQProps {
-  user: UserType;
-  setModalExpand: (b: boolean) => void;
-  setNotAvailable: (b: boolean) => void;
-}
+const FAQ = () => {
+  const { name } = useMarketplaceData()
 
-const FAQ: React.FC<FAQProps> = ({ user, setModalExpand, setNotAvailable }) => {
-  const sec = [
+  const sections = [
     {
-      question: 'What is SecretNFT Marketplace ?',
-      answer:
-        '“SecretNFT” is a NFTs marketplace for digital creators. Discover Tokenized Digital Art. Artists issue authenticated single edition digital artworks. These are certified on the Ternoa blockchain to prevent forgery. Each artwork is authentically created by an artist in the network, and tokenized as a collectible digital item that you can own, display and trade.',
+      question: `What is ${name} Marketplace ?`,
+      answer: `“${name}” is a NFTs marketplace for digital creators. Discover Tokenized Digital Art. Artists issue authenticated single edition digital artworks. These are certified on the Ternoa blockchain to prevent forgery. Each artwork is authentically created by an artist in the network, and tokenized as a collectible digital item that you can own, display and trade.`,
     },
     {
       question: 'How to submit your NFT as an artist?',
-      answer:
-        'In alpha version, you fill our form here. Soon you will be able to upload your creations on “SecretNFT”.',
+      answer: `In beta version, you fill our form here. Soon you will be able to upload your creations on “${name}”.`,
     },
     {
-      question: 'What do I use for payment when buying on SecretNFT ?',
-      answer:
-        '“SecretNFT” is on Ternoa Chain, so all the platform use CAPS for transactions.',
+      question: `What do I use for payment when buying on ${name} ?`,
+      answer: `“${name}” is on Ternoa Chain, so all the platform use CAPS for transactions.`,
     },
     {
       question: 'What is CAPS and why do i need some ?',
@@ -36,27 +28,42 @@ const FAQ: React.FC<FAQProps> = ({ user, setModalExpand, setNotAvailable }) => {
         'CAPS is the Ternoa token. You can see more about the CAPS here. You need some CAPS to buy or sell creations.',
     },
     {
-      question: 'What is “chaos CAPS”?',
-      answer:
-        '“Chaos CAPS” are fake CAPS usable on our chaos net (the first blockchain version). Real CAPS will come on testnet.',
+      question: 'What are “test CAPS”?',
+      answer: '“Test CAPS” are CAPS usable on our testnet. Real CAPS will come on mainnet.',
     },
-  ];
-  function returnSections() {
-    return sec.map((x, index) => {
-      return <Section key={index} section={x} />;
-    });
-  }
-  return (
-    <div className={style.Container}>
-      <div className={style.Wrapper}>
-        <h1 className={style.Title}>How it works ?</h1>
-        <span className={style.FAQ}>FAQ</span>
-        <div className={style.Inner}>{returnSections()}</div>
-      </div>
-      <FloatingHeader user={user} setModalExpand={setModalExpand} />
-      <Footer setNotAvailable={setNotAvailable} />
-    </div>
-  );
-};
+  ]
 
-export default FAQ;
+  return (
+    <Container>
+      <Wrapper>
+        <Title>How it works ?</Title>
+        <SSubtitle>FAQ</SSubtitle>
+        <SSectionsWrapper>
+          {sections.map((x, index) => (
+            <Section key={index} section={x} />
+          ))}
+        </SSectionsWrapper>
+      </Wrapper>
+    </Container>
+  )
+}
+
+const SSubtitle = styled.div`
+  font-size: 3.2rem;
+  text-align: center;
+
+  ${({ theme }) => theme.mediaQueries.lg} {
+    font-size: 4rem;
+    text-align: left;
+  }
+`
+
+const SSectionsWrapper = styled.div`
+  margin-top: 0.8rem;
+
+  ${({ theme }) => theme.mediaQueries.lg} {
+    margin-top: 8rem;
+  }
+`
+
+export default FAQ

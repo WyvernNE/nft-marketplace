@@ -1,79 +1,126 @@
-import React from 'react';
+import React from 'react'
+import styled from 'styled-components'
 
-import style from './Footer.module.scss';
-import WaterMark from 'components/assets/Watermark';
-import Telegram from 'components/assets/SocialMedias/Telegram';
-import Twitter from 'components/assets/SocialMedias/Twitter';
-import LinkedIn from 'components/assets/SocialMedias/LinkedIn';
-import Instagram from 'components/assets/SocialMedias/Instagram';
-import Github from 'components/assets/SocialMedias/Github';
-import Youtube from 'components/assets/SocialMedias/Youtube';
+import Icon from 'components/ui/Icon'
+import { Container, Wrapper } from 'components/layout'
+import { useMarketplaceData } from 'redux/hooks'
 
-export interface FooterProps {
-  setNotAvailable: (b: boolean) => void;
-}
+const Footer = () => {
+  const { instagramUrl, name, twitterUrl } = useMarketplaceData()
 
-const Footer: React.FC<FooterProps> = ({ setNotAvailable }) => {
   return (
-    <div className={style.Footer}>
-      <WaterMark className={style.WaterMark} />
-      <div className={style.Container}>
-        <span className={style.Insight}>Keep in touch !</span>
-        <div className={style.InputContainer}>
-          <input
-            className={style.Input}
-            placeholder="Your email..."
-            type="text"
-          />
-          <div className={style.Button} onClick={() => setNotAvailable(true)}>
-            Go
-          </div>
-        </div>
-        <div className={style.SocialMedias}>
-          <a href="https://t.me/ternoa" target="_blank">
-            <Telegram onClick={() => true} className={style.SVGMedia} />
-          </a>
-          <a href="https://twitter.com/SecretNFT_">
-            <Twitter onClick={() => true} className={style.SVGMediaTwitter} />
-          </a>
-          <a href="https://www.linkedin.com/company/50607388/" target="_blank">
-            <LinkedIn onClick={() => true} className={style.SVGMedia} />
-          </a>
-          <a href="https://www.instagram.com/ternoa_/" target="_blank">
-            <Instagram onClick={() => true} className={style.SVGMedia} />
-          </a>
-          <a href="https://github.com/capsule-corp-ternoa" target="_blank">
-            <Github onClick={() => true} className={style.SVGMedia} />
-          </a>
-          <a
-            href="https://www.youtube.com/channel/UCUYvbtRE5HoWPz7z88V7Khw"
+    <SFooterContainer>
+      <SFooterWrapper>
+        <SLegalsContainer>
+          <SLabel>{`© ${name}`}</SLabel>
+          <SLabel>All rights reserved</SLabel>
+          <SLink
+            href="https://ternoahelp.zendesk.com/hc/fr/articles/4409410791185-Terms-of-use"
             target="_blank"
-          >
-            <Youtube onClick={() => true} className={style.SVGMedia} />
-          </a>
-        </div>
-      </div>
-      <div className={style.FooterBar}>
-        <div className={style.Legals}>
-          <div className={style.Link}>SECRET NFT</div>
-          <div className={style.Link}>All rights reserved</div>
-          <a
-            href="https://intercom.help/ternoa/fr/collections/2774679-legal"
-            className={style.Link}
+            rel="noreferrer noopener"
           >
             Terms
-          </a>
-          <a
-            href="https://intercom.help/ternoa/fr/collections/2774679-legal"
-            className={style.Link}
+          </SLink>
+          <SLink
+            href="https://ternoahelp.zendesk.com/hc/fr/articles/4409410776337-Privacy-Policy"
+            target="_blank"
+            rel="noreferrer noopener"
           >
             Privacy
-          </a>
-        </div>
-        {/* <div className={style.Languages}></div> */}
-      </div>
-    </div>
-  );
-};
+          </SLink>
+        </SLegalsContainer>
+        <SSocialsContainer>
+          {twitterUrl !== 'false' && (
+            <a href={twitterUrl} target="_blank" rel="noreferrer" title="Official Twitter account">
+              <SMediaIcon name="socialTwitter" />
+            </a>
+          )}
+          {instagramUrl !== 'false' && (
+            <a href={instagramUrl} target="_blank" rel="noreferrer" title="Official Instagram account">
+              <SMediaIcon name="socialInstagram" />
+            </a>
+          )}
+        </SSocialsContainer>
+      </SFooterWrapper>
+    </SFooterContainer>
+  )
+}
 
-export default Footer;
+const SFooterContainer = styled(Container)`
+  width: 100%;
+  background: ${({ theme }) => theme.colors.contrast};
+  margin-top: auto;
+`
+
+const SFooterWrapper = styled(Wrapper)`
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 15.2rem !important;
+  padding-top: 2.4rem !important;
+
+  ${({ theme }) => theme.mediaQueries.lg} {
+    padding-bottom: 2.4rem !important;
+  }
+`
+
+const SLegalsContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+
+  ${({ theme }) => theme.mediaQueries.sm} {
+    flex-direction: row;
+    > * {
+      &:not(:first-child) {
+        margin-left: 1.6rem;
+      }
+    }
+  }
+`
+
+const SLabel = styled.span`
+  color: ${({ theme }) => theme.colors.neutral200};
+  font-size: 1.6rem;
+`
+
+const SLink = styled.a`
+  color: ${({ theme }) => theme.colors.neutral200};
+  cursor: pointer;
+  font-family: ${({ theme }) => theme.fonts.bold};
+  font-size: 1.6rem;
+  margin-top: 0.8rem;
+
+  &:hover {
+    color: ${({ theme }) => theme.colors.primary300};
+  }
+
+  ${({ theme }) => theme.mediaQueries.sm} {
+    margin-top: 0;
+  }
+`
+
+const SSocialsContainer = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  > a {
+    &:not(:first-child) {
+      margin-left: 3.2rem;
+    }
+  }
+`
+
+const SMediaIcon = styled(Icon)`
+  width: 1.6rem;
+  cursor: pointer;
+  fill: ${({ theme }) => theme.colors.invertedContrast};
+  z-index: 10;
+
+  ${({ theme }) => theme.mediaQueries.lg} {
+    width: 2.4rem;
+  }
+`
+
+export default Footer

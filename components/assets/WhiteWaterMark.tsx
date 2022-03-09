@@ -1,16 +1,11 @@
-import React from 'react';
+import React from 'react'
 
 interface WhiteWaterMarkProps {
-  className: string;
+  className?: string
 }
 
-const WhiteWaterMark: React.FC<WhiteWaterMarkProps> = ({ className }) => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    className={className}
-    fill="none"
-    viewBox="0 0 247 246"
-  >
+const WhiteWaterMark = ({ className }: WhiteWaterMarkProps) => (
+  <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 247 246">
     <path
       fill="#FFFFFF"
       fillRule="evenodd"
@@ -18,6 +13,6 @@ const WhiteWaterMark: React.FC<WhiteWaterMarkProps> = ({ className }) => (
       clipRule="evenodd"
     />
   </svg>
-);
+)
 
-export default WhiteWaterMark;
+export default WhiteWaterMark

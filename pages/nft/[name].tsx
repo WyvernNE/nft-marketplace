@@ -1,145 +1,148 @@
-import React, { useState, useEffect } from 'react';
-import Head from 'next/head';
-import AlphaBanner from 'components/base/AlphaBanner';
-import MainHeader from 'components/base/MainHeader';
-import ModalBuy from 'components/pages/NFT/ModalBuy';
-import TernoaWallet from 'components/base/TernoaWallet';
-import NFTPage from 'components/pages/NFT';
-import ModalShowcase from 'components/pages/NFT/ModalShowcase';
-import NotAvailableModal from 'components/base/NotAvailable';
-import cookies from 'next-cookies';
+import React, { useState, useEffect } from 'react'
+import { NextPageContext } from 'next'
+import Head from 'next/head'
+import cookies from 'next-cookies'
+import Cookies from 'js-cookie'
+import { useDispatch } from 'react-redux'
 
-import { getUser } from 'actions/user';
-import { getNFT } from 'actions/nft';
-import { getCapsValue } from 'actions/caps';
-import { NftType, UserType } from 'interfaces';
-import { NextPageContext } from 'next';
-
-import { onModelClose, onModelOpen } from '../../utils/model-helpers';
+import { getNFT } from 'actions/nft'
+import { getCapsValue } from 'actions/caps'
+import { getUser } from 'actions/user'
+import BetaBanner from 'components/base/BetaBanner'
+import FloatingHeader from 'components/base/FloatingHeader'
+import Footer from 'components/base/Footer'
+import MainHeader from 'components/base/MainHeader'
+import NFTPage from 'components/pages/NFT'
+import { NftType } from 'interfaces'
+import { appSetUser } from 'redux/app'
+import { useMarketplaceData } from 'redux/hooks'
+import { encryptCookie, decryptCookie } from 'utils/cookie'
+import { getUserIp } from 'utils/functions'
+import { MARKETPLACE_ID } from 'utils/constant'
 
 export interface NFTPageProps {
-  user: UserType;
-  NFT: NftType;
-  capsValue: number;
+  NFT: NftType
+  capsValue: number
 }
 
-const NftPage: React.FC<NFTPageProps> = ({ user, NFT, capsValue }) => {
-  const [modalExpand, setModalExpand] = useState(false);
-  const [exp, setExp] = useState(0);
-  const [notAvailable, setNotAvailable] = useState(false);
-  const [type, setType] = useState<string | null>(null);
-  const [walletUser, setWalletUser] = useState(user);
+const NftPage = ({ NFT, capsValue }: NFTPageProps) => {
+  const [type, setType] = useState<string | null>(null)
+  const [isUserFromDappQR, setIsUserFromDappQR] = useState(false)
+
+  const dispatch = useDispatch()
+  const { name } = useMarketplaceData()
+  const ipfsMediaSrc = NFT.properties?.preview.ipfs
 
   useEffect(() => {
+    let shouldUpdate = true
+    const params = new URLSearchParams(window.location.search)
+    if (
+      Boolean(window.isRNApp) &&
+      window.walletId &&
+      (!Cookies.get('token') || decryptCookie(Cookies.get('token') as string) !== window.walletId)
+    ) {
+      if (params.get('walletId') && params.get('walletId') !== window.walletId) {
+        dispatch(appSetUser(null))
+      }
+      Cookies.remove('token')
+      getUser(window.walletId, true)
+        .then((user) => {
+          if (shouldUpdate) {
+            dispatch(appSetUser(user))
+            Cookies.set('token', encryptCookie(window.walletId), { expires: 1 })
+          }
+        })
+        .catch((error) => console.log({ error }))
+    }
+    if (!Boolean(window.isRNApp) && params.get('walletId')) {
+      dispatch(appSetUser(null))
+    }
+    if (window.isRNApp && window.history.length === 1) {
+      setIsUserFromDappQR(true)
+    }
+
+    return () => {
+      shouldUpdate = false
+    }
+  }, [dispatch])
+
+  useEffect(() => {
+    let shouldUpdate = true
     async function callBack() {
-      try {
-        let res = await getUser(window.walletId);
-        setWalletUser(res);
-      } catch (error) {
-        console.error(error);
+      if (ipfsMediaSrc !== undefined) {
+        try {
+          const res = await fetch(ipfsMediaSrc, { method: 'HEAD' })
+          if (shouldUpdate) setType(res.headers.get('Content-Type'))
+          return res
+        } catch (err) {
+          console.log('Error :', err)
+        }
       }
     }
-    if (window.isRNApp && window.walletId) callBack();
-  }, []);
 
-  useEffect(() => {
-    async function callBack() {
-      try {
-        let res = await fetch(NFT.media!.url, { method: 'HEAD' });
-        setType(res.headers.get('Content-Type'));
-        return res;
-      } catch (err) {
-        console.log('Error :', err);
-      }
+    callBack()
+    return () => {
+      shouldUpdate = false
     }
-
-    callBack();
-  }, []);
-
-  useEffect(() => {
-    if (exp === 1 || exp === 2) {
-      // we are showing a modal;
-      onModelOpen();
-    } else {
-      onModelClose();
-    }
-  }, [exp]);
+  }, [ipfsMediaSrc])
 
   return (
     <>
       <Head>
-        <title>{NFT.name} - SecretNFT</title>
+        <title>
+          {NFT.title} - {name}
+        </title>
         <meta name="viewport" content="initial-scale=1.0, width=device-width" />
         <meta name="description" content={NFT.description} />
-        <meta name="og:image" content={NFT.media.url} />
-        <meta property="og:image" content={NFT.media.url} />
+        <meta name="og:image" content={NFT.properties?.preview.ipfs} />
+        <meta property="og:image" content={NFT.properties?.preview.ipfs} />
       </Head>
-      {notAvailable && <NotAvailableModal setNotAvailable={setNotAvailable} />}
-      {[1, 2].indexOf(exp) !== -1 && (
-        <ModalShowcase
-          NFT={NFT}
-          setExp={setExp}
-          exp={exp}
-          setModalExpand={() => setExp(3)}
-          type={type}
-          user={walletUser}
-        />
-      )}
-      {exp === 3 && <ModalBuy setModalExpand={() => setExp(0)} id={NFT.id} />}
-      {modalExpand && <TernoaWallet setModalExpand={setModalExpand} />}
 
-      <AlphaBanner />
-      <MainHeader user={walletUser} setModalExpand={setModalExpand} />
-      <NFTPage
-        NFT={NFT}
-        setExp={setExp}
-        setModalExpand={setModalExpand}
-        setNotAvailable={setNotAvailable}
-        user={walletUser}
-        setUser={setWalletUser}
-        type={type}
-        capsValue={capsValue}
-      />
+      <BetaBanner />
+      <MainHeader />
+      <NFTPage NFT={NFT} type={type} capsValue={capsValue} isUserFromDappQR={isUserFromDappQR} />
+      <Footer />
+      <FloatingHeader />
     </>
-  );
-};
-
-export async function getServerSideProps(ctx: NextPageContext) {
-  const token = cookies(ctx).token;
-  let user: UserType | null = null, NFT: NftType | null = null, capsValue: number = 0
-  const promises = [];
-  if (token) {
-    promises.push(new Promise<void>((success) => {
-      getUser(token).then(_user => {
-        user = _user
-        success();
-      }).catch(success);
-    }));
-  }
-  promises.push(new Promise<void>((success) => {
-    getNFT(ctx.query.name as string, true, token ? token : null).then(_nft => {
-      NFT = _nft
-      success();
-    }).catch(success);
-  }));
-  promises.push(new Promise<void>((success) => {
-    getCapsValue().then(_value => {
-      capsValue = _value
-      success();
-    }).catch(success);
-  }));
-  await Promise.all(promises);
-  if (!NFT) {
-    return {
-      redirect: {
-        permanent: false,
-        destination: '/',
-      },
-    };
-  }
-  return {
-    props: { user, NFT, capsValue },
-  };
+  )
 }
 
-export default NftPage;
+export async function getServerSideProps(ctx: NextPageContext) {
+  const token = cookies(ctx).token && decryptCookie(cookies(ctx).token as string)
+  let NFT: NftType | null = null,
+    capsValue = 0
+  const promises = []
+  const ip = getUserIp(ctx.req)
+
+  promises.push(
+    new Promise<void>((success) => {
+      getNFT(ctx.query.name as string, true, token ? token : null, ip, MARKETPLACE_ID, true)
+        .then((_nft) => {
+          NFT = _nft
+          success()
+        })
+        .catch(success)
+    })
+  )
+  promises.push(
+    new Promise<void>((success) => {
+      getCapsValue()
+        .then((_value) => {
+          capsValue = _value
+          success()
+        })
+        .catch(success)
+    })
+  )
+  await Promise.all(promises)
+  if (!NFT) {
+    return {
+      notFound: true,
+    }
+  }
+  return {
+    props: { NFT, capsValue },
+  }
+}
+
+export default NftPage
