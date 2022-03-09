@@ -1,152 +1,156 @@
-import React, { useState } from 'react';
-import Link from 'next/link';
+import React, { useState } from 'react'
+import Link from 'next/link'
+import styled from 'styled-components'
 
-import Logo from 'components/assets/LogoTernoa';
-import Creator from '../Creator';
-import CopyPaste from 'components/assets/copypaste';
+import { ModalWallet } from 'components/base/Modal'
+import { ProfileMenuBadge, ProfileMenuDropdown } from 'components/base/ProfileMenu'
+import Button from 'components/ui/Button'
+import Icon from 'components/ui/Icon'
+import { Container, Wrapper } from 'components/layout'
 
-import style from './MainHeader.module.scss';
-import { computeCaps, computeTiime, middleEllipsis } from 'utils/strings';
-import gradient from 'random-gradient';
+import { computeCaps } from 'utils/strings'
+import { useApp } from 'redux/hooks'
 
-import { UserType } from 'interfaces/index';
+const MainHeader: React.FC = () => {
+  const [isModalWalletExpanded, setIsModalWalletExpanded] = useState(false)
+  const [isProfileMenuExpanded, setIsProfileMenuExpanded] = useState(false)
 
-export interface HeaderProps {
-  user: UserType;
-  setModalExpand: (b: boolean) => void;
+  const { user } = useApp()
+
+  const isNftCreationEnabled =
+    process.env.NEXT_PUBLIC_IS_NFT_CREATION_ENABLED === undefined
+      ? true
+      : process.env.NEXT_PUBLIC_IS_NFT_CREATION_ENABLED === 'true'
+
+  return (
+    <>
+      <Container>
+        <SWrapper>
+          <Link href="/">
+            <a title="Marketplace homepage">
+              <SLogo name="logoTernoaBlack" />
+            </a>
+          </Link>
+          <SNavContainer>
+            <SNavLinksContainer>
+              <Link href="/explore" passHref>
+                <SLinkItem>Explore</SLinkItem>
+              </Link>
+              <Link href="/faq" passHref>
+                <SLinkItem>How it works</SLinkItem>
+              </Link>
+            </SNavLinksContainer>
+            <SNavButtonsCointainer>
+              {isNftCreationEnabled && (
+                <Link href="/create" passHref>
+                  <>
+                    <Button color="contrast" href="/create" size="medium" text="Create NFT" variant="outlined" />
+                  </>
+                </Link>
+              )}
+              {user ? (
+                <ProfileMenuBadge
+                  onClick={() => setIsProfileMenuExpanded((prevState) => !prevState)}
+                  tokenAmount={user?.capsAmount ? computeCaps(Number(user.capsAmount)) : 0}
+                  tokenSymbol="CAPS"
+                  user={user}
+                />
+              ) : (
+                <Button
+                  color="contrast"
+                  onClick={() => setIsModalWalletExpanded(true)}
+                  size="medium"
+                  suppressHydrationWarning
+                  text="Connect"
+                  variant="outlined"
+                />
+              )}
+            </SNavButtonsCointainer>
+          </SNavContainer>
+          {user && isProfileMenuExpanded && (
+            <SProfileMenuDropdown onClose={() => setIsProfileMenuExpanded(false)} user={user} />
+          )}
+        </SWrapper>
+      </Container>
+      {isModalWalletExpanded && <ModalWallet setExpanded={setIsModalWalletExpanded} />}
+    </>
+  )
 }
 
-const MainHeader: React.FC<HeaderProps> = ({ setModalExpand, user }) => {
-  const [, setSearchValue] = useState('' as string);
-  const [isExpanded, setIsExpanded] = useState(false);
-  const bgGradient = user ? { background: gradient(user.name) } : {};
-  const isNftCreationEnabled = process.env.NEXT_PUBLIC_IS_NFT_CREATION_ENABLED===undefined ? true : process.env.NEXT_PUBLIC_IS_NFT_CREATION_ENABLED === 'true'
-  const updateKeywordSearch = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchValue(event.currentTarget.value);
-  };
-  return (
-    <div className={style.Header}>
-      <div className={style.HeaderContainer}>
-        <Link href="/">
-          <a>
-            <Logo className={style.Logo} onClick={() => true} />
-          </a>
-        </Link>
+const SWrapper = styled(Wrapper)`
+  flex-direction: row;
+  justify-content: center;
+  position: relative;
+  padding-top: 3.2rem !important;
+  padding-bottom: 3.2rem !important;
 
-        <div className={style.SearchBar}>
-          <input
-            type="search"
-            onChange={updateKeywordSearch}
-            className={style.Input}
-            placeholder="Search"
-          />
-        </div>
-        <div className={style.Infos}>
-          <div className={style.Links}>
-            <Link href="/explore">
-              <a className={style.LinkItem}>Explore</a>
-            </Link>
-            <Link href="/faq">
-              <a className={style.LinkItem}>How it works</a>
-            </Link>
-          </div>
-          <div className={style.Wallet}>
-            {user ? (
-              <div className={style.Regular}>
-                {isNftCreationEnabled && <Link href="/create">
-                  <a className={style.Create}>Create NFT</a>
-                </Link>}
-                <div
-                  onClick={() => setIsExpanded(!isExpanded)}
-                  className={style.Profile}
-                >
-                  <div className={style.Caps}>
-                    <span className={style.NumberCaps}>
-                      {user && user.capsAmount
-                        ? computeCaps(Number(user.capsAmount))
-                        : 0}
-                    </span>
-                    CAPS
-                  </div>
-                  <div className={style.Caps}>
-                    <span className={style.NumberCaps}>
-                      {user && user.tiimeAmount
-                        ? computeTiime(Number(user.tiimeAmount))
-                        : 0}
-                    </span>
-                    TIIME
-                  </div>
-                  
-                  <div className={style.ProfileImageContainer}>
-                    {user.picture ? (
-                      <img
-                        src={user.picture}
-                        draggable="false"
-                        className={style.ProfileImage}
-                      />
-                    ) : (
-                      <div style={bgGradient} className={style.ProfileImage}>
-                        <div className={style.CreatorLetter}>
-                          {user.name.charAt(0)}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className={style.Regular}>
-                {isNftCreationEnabled && <Link href="/create">
-                  <a className={style.Create}>Create NFT</a>
-                </Link>}
-                <div
-                  onClick={() => setModalExpand(true)}
-                  className={style.Connect}
-                >
-                  Connect
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-        {user && isExpanded && (
-          <div className={style.Dropdown}>
-            <div className={style.DropdownContainer}>
-              <div className={style.DropdownProfile}>
-                <Creator user={user} size="xsmall" showTooltip={false} />
-                <div className={style.Name}>{user?.name}</div>
-              </div>
+  ${({ theme }) => theme.mediaQueries.lg} {
+    justify-content: space-between;
+    padding-top: 4rem !important;
+    padding-bottom: 4rem !important;
+  }
+`
 
-              <div className={style.Section}>
-                <div
-                  className={style.SectionTitle}
-                  onClick={() => {
-                    navigator.clipboard.writeText(user.walletId);
-                  }}
-                >
-                  Wallet :
-                  <span className={style.SectionWallet}>
-                    {middleEllipsis(user.walletId, 20)}
-                    <CopyPaste className={style.CopyPaste} />
-                  </span>
-                </div>
-              </div>
-              <Link href="/profile">
-                <a className={style.Section}>
-                  <div className={style.SectionTitle}> My Account</div>
-                </a>
-              </Link>
-            </div>
-            <Link href={`/${user.walletId}`}>
-              <a className={style.CapsSection}>
-                <div className={style.SectionTitle}>My artist profile</div>
-              </a>
-            </Link>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-};
+const SLogo = styled(Icon)`
+  width: 16rem;
+  cursor: pointer;
+`
 
-export default MainHeader;
+const SNavContainer = styled.div`
+  display: none;
+
+  ${({ theme }) => theme.mediaQueries.lg} {
+    display: flex;
+    align-items: center;
+  }
+`
+
+const SNavLinksContainer = styled.div`
+  display: flex;
+  align-items: center;
+
+  > * {
+    &:not(:first-child) {
+      margin-left: 2.4rem;
+    }
+  }
+`
+
+const SLinkItem = styled.a`
+  color: ${({ theme }) => theme.colors.contrast};
+  cursor: pointer;
+  font-family: ${({ theme }) => theme.fonts.bold};
+  font-size: 1.6rem;
+`
+
+const SNavButtonsCointainer = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2.4rem;
+
+  ${({ theme }) => theme.mediaQueries.lg} {
+    margin-left: 5.6rem;
+  }
+`
+
+const SProfileMenuDropdown = styled(ProfileMenuDropdown)`
+  top: 10.4rem;
+  right: 3.2rem;
+
+  &::before {
+    width: 0;
+    height: 0;
+    border-left: 2.4rem solid transparent;
+    border-right: 2.4rem solid transparent;
+    z-index: 101;
+    border-top: ${({ theme }) => `1.2rem solid ${theme.colors.invertedContrast}`};
+    content: '';
+    position: absolute;
+    top: -1.6rem;
+    right: 3.2rem;
+    transform: translateY(0.8rem) rotate(180deg);
+  }
+`
+
+export default MainHeader

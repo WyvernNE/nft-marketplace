@@ -29,9 +29,11 @@ yarn-error.log*
 .env.development.local
 .env.test.local
 .env.production.local
-.env
+.env*
 # vercel
 .vercel
 .history/
 # Local Netlify folder
 .netlify
+
+.vscode

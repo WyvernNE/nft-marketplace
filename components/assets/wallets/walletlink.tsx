@@ -1,16 +1,11 @@
-import React from 'react';
+import React from 'react'
 
 interface WalletLinkProps {
-  className: string;
+  className?: string
 }
 
-const WalletLink: React.FC<WalletLinkProps> = ({ className }) => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    className={className}
-    fill="none"
-    viewBox="0 0 27 26"
-  >
+const WalletLink = ({ className }: WalletLinkProps) => (
+  <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 27 26">
     <g clipPath="url(#clip0WL)">
       <path
         fill="#1F57EA"
@@ -27,6 +22,6 @@ const WalletLink: React.FC<WalletLinkProps> = ({ className }) => (
       </clipPath>
     </defs>
   </svg>
-);
+)
 
-export default WalletLink;
+export default WalletLink
